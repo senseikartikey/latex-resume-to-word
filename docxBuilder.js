@@ -49,6 +49,19 @@ function buildResumeDocument(data) {
 
   const lineSpacing = { line: Math.round(240 * 0.95), lineRule: LineRuleType.AUTO };
 
+  // Bullets use a literal "•" character as real text, not Word's numPr list
+  // feature -- a parser that reads the raw text stream (ignoring OOXML list
+  // numbering metadata) sees numPr bullets as plain, unmarked sentences,
+  // which risks achievements merging into one undifferentiated block.
+  function bulletParagraph(runs, opts = {}) {
+    const textRuns = runsToTextRuns(runs, opts);
+    return new Paragraph({
+      indent: { left: cm(0.45), hanging: cm(0.25) },
+      spacing: { after: 0, line: lineSpacing.line, lineRule: lineSpacing.lineRule },
+      children: [new TextRun({ text: '•  ', size: opts.size }), ...textRuns],
+    });
+  }
+
   const children = [];
 
   // ---- Name ----
@@ -112,14 +125,7 @@ function buildResumeDocument(data) {
         }
 
         for (const bullet of entry.bullets || []) {
-          children.push(
-            new Paragraph({
-              bullet: { level: 0 },
-              indent: { left: cm(0.45) },
-              spacing: { after: 0, line: lineSpacing.line, lineRule: lineSpacing.lineRule },
-              children: runsToTextRuns(bullet, { size: halfPt(10) }),
-            }),
-          );
+          children.push(bulletParagraph(bullet, { size: halfPt(10) }));
         }
       } else if (entry.type === 'line') {
         children.push(
@@ -130,14 +136,7 @@ function buildResumeDocument(data) {
         );
       } else if (entry.type === 'bullets') {
         for (const bullet of entry.bullets || []) {
-          children.push(
-            new Paragraph({
-              bullet: { level: 0 },
-              indent: { left: cm(0.45) },
-              spacing: { after: 0, line: lineSpacing.line, lineRule: lineSpacing.lineRule },
-              children: runsToTextRuns(bullet, { size: halfPt(10) }),
-            }),
-          );
+          children.push(bulletParagraph(bullet, { size: halfPt(10) }));
         }
       }
     }
