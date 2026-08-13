@@ -381,8 +381,13 @@ function cleanContactSegment(inner) {
   }
   let text = flattenText(parseInline(inner));
   if (url) {
-    if (/linkedin\.com/i.test(url) && !/linkedin\.com/i.test(text)) {
-      text = 'linkedin.com/in/' + text.replace(/^\/*(in\/)?/, '');
+    if (/linkedin\.com/i.test(url)) {
+      // Always mirror the normalized (www.-prefixed) URL in the visible text
+      // too -- some ATS resume parsers (e.g. Workday) classify "LinkedIn"
+      // links by scanning visible text for "linkedin.com", not just the
+      // hyperlink target, and the plain "linkedin.com/in/..." form (no
+      // "www.") was going undetected even after the link itself was fixed.
+      text = url.replace(/^https?:\/\//i, '');
     } else if (/github\.com/i.test(url) && !/github\.com/i.test(text)) {
       text = 'github.com/' + text;
     }
