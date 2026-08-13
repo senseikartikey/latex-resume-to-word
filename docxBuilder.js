@@ -12,21 +12,36 @@ const MARGIN_TOP_BOTTOM = cm(0.7);
 const MARGIN_SIDES = cm(1.4);
 const USABLE_WIDTH = PAGE_WIDTH_TWIP - MARGIN_SIDES * 2;
 
+const HYPERLINK_COLOR = '2f5fb3';
+
 // Renders rich-run arrays (as produced by parser.js) using each run's own
 // bold/italic flags -- no forced overrides, so nested formatting (e.g. a bold
-// GPA inside an otherwise italic subheader) survives intact.
+// GPA inside an otherwise italic subheader) survives intact. Runs carrying a
+// `url` (from \href/\hrefWithoutArrow) become real clickable hyperlinks.
 function runsToTextRuns(runs, opts = {}) {
-  const { TextRun } = docx;
+  const { TextRun, ExternalHyperlink, UnderlineType } = docx;
   if (!runs || runs.length === 0) return [];
-  return runs.map(
-    (r) =>
-      new TextRun({
-        text: r.text,
-        bold: !!r.bold,
-        italics: !!r.italic,
-        ...(opts.size ? { size: opts.size } : {}),
-      }),
-  );
+  return runs.map((r) => {
+    const runProps = {
+      text: r.text,
+      bold: !!r.bold,
+      italics: !!r.italic,
+      ...(opts.size ? { size: opts.size } : {}),
+    };
+    if (r.url) {
+      return new ExternalHyperlink({
+        link: r.url,
+        children: [
+          new TextRun({
+            ...runProps,
+            color: HYPERLINK_COLOR,
+            underline: { type: UnderlineType.SINGLE },
+          }),
+        ],
+      });
+    }
+    return new TextRun(runProps);
+  });
 }
 
 function buildResumeDocument(data) {
@@ -50,7 +65,7 @@ function buildResumeDocument(data) {
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: pt(2), line: lineSpacing.line, lineRule: lineSpacing.lineRule },
-      children: [new TextRun({ text: data.contact || '', size: halfPt(9.5) })],
+      children: runsToTextRuns(data.contact || [], { size: halfPt(9.5) }),
     }),
   );
 

@@ -64,9 +64,12 @@ function parseInline(latex) {
     }
   }
 
-  function pushRuns(subRuns, bold, italic) {
+  function pushRuns(subRuns, bold, italic, url) {
     for (const r of subRuns) {
-      runs.push({ text: r.text, bold: r.bold || bold, italic: r.italic || italic });
+      const run = { text: r.text, bold: r.bold || bold, italic: r.italic || italic };
+      const finalUrl = url || r.url;
+      if (finalUrl) run.url = finalUrl;
+      runs.push(run);
     }
   }
 
@@ -106,7 +109,7 @@ function parseInline(latex) {
             const textArg = extractArg(latex, urlArg.end + 1);
             if (textArg) {
               flush();
-              pushRuns(parseInline(textArg.content), false, false);
+              pushRuns(parseInline(textArg.content), false, false, urlArg.content.trim());
               i = textArg.end + 1;
               continue;
             }
@@ -174,7 +177,7 @@ function parseInline(latex) {
   const merged = [];
   for (const r of cleaned) {
     const last = merged[merged.length - 1];
-    if (last && last.bold === r.bold && last.italic === r.italic) {
+    if (last && last.bold === r.bold && last.italic === r.italic && last.url === r.url) {
       last.text += r.text;
     } else {
       merged.push({ ...r });
@@ -326,6 +329,8 @@ function extractName(body) {
   return flattenText(parseInline(body.slice(openIdx + 1, closeIdx)));
 }
 
+// Returns { text, url } -- url is set when the segment was wrapped in
+// \href/\hrefWithoutArrow, so the caller can render a real hyperlink.
 function cleanContactSegment(inner) {
   let url = null;
   const hm = inner.match(/^\\(hrefWithoutArrow|href)/);
@@ -333,7 +338,7 @@ function cleanContactSegment(inner) {
     const afterCmd = hm[0].length;
     const urlArg = extractArg(inner, afterCmd);
     if (urlArg) {
-      url = urlArg.content;
+      url = urlArg.content.trim();
       const textArg = extractArg(inner, urlArg.end + 1);
       if (textArg) inner = textArg.content;
     }
@@ -346,7 +351,7 @@ function cleanContactSegment(inner) {
       text = 'github.com/' + text;
     }
   }
-  return text;
+  return { text, url };
 }
 
 function extractContactSegments(centerBlockLatex) {
@@ -360,12 +365,15 @@ function extractContactSegments(centerBlockLatex) {
     const closeIdx = findMatchingBrace(centerBlockLatex, openIdx);
     if (closeIdx === -1) break;
     const seg = cleanContactSegment(centerBlockLatex.slice(openIdx + 1, closeIdx));
-    if (seg) segments.push(seg);
+    if (seg.text) segments.push(seg);
     idx = closeIdx + 1;
   }
   return segments;
 }
 
+// Returns an array of { text, url|null } items, with plain "  |  " separators
+// interleaved between segments. Consumed directly by docxBuilder so real
+// links (mailto/https) can be rendered as clickable hyperlinks.
 function extractContact(body) {
   const hEnd = body.indexOf('\\end{header}');
   const searchFrom = hEnd === -1 ? 0 : hEnd;
@@ -374,9 +382,15 @@ function extractContact(body) {
   const region = body.slice(searchFrom, searchTo);
   const cStart = region.indexOf('\\begin{center}');
   const cEnd = region.indexOf('\\end{center}');
-  if (cStart === -1 || cEnd === -1) return '';
+  if (cStart === -1 || cEnd === -1) return [];
   const centerContent = region.slice(cStart + '\\begin{center}'.length, cEnd);
-  return extractContactSegments(centerContent).join('  |  ');
+  const segments = extractContactSegments(centerContent);
+  const items = [];
+  segments.forEach((seg, idx) => {
+    if (idx > 0) items.push({ text: '  |  ', url: null });
+    items.push({ text: seg.text, url: seg.url || null });
+  });
+  return items;
 }
 
 function parseLatexResume(rawLatex) {
