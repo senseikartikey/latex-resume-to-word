@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LaTeX Resume → Word</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>LaTeX Resume → Word</h1>
+    <p class="subtitle">
+      Paste your LaTeX resume code, then click convert to download a clean,
+      single-column, ATS-friendly .docx. Tuned for the
+      <code>\section</code> / <code>\twocolentry</code> / <code>\highlights</code>
+      template style. Everything runs in your browser — nothing is uploaded anywhere.
+    </p>
+
+    <textarea id="latex-input" placeholder="Paste your full .tex file contents here…" spellcheck="false"></textarea>
+
+    <div class="actions">
+      <button id="convert-btn">Convert &amp; Download .docx</button>
+      <span id="status" class="status"></span>
+    </div>
+
+  </main>
+
+  <script src="https://unpkg.com/docx@9.7.1/dist/index.umd.cjs"></script>
+  <script src="parser.js"></script>
+  <script src="docxBuilder.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
