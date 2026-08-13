@@ -109,7 +109,7 @@ function parseInline(latex) {
             const textArg = extractArg(latex, urlArg.end + 1);
             if (textArg) {
               flush();
-              pushRuns(parseInline(textArg.content), false, false, urlArg.content.trim());
+              pushRuns(parseInline(textArg.content), false, false, normalizeHrefUrl(urlArg.content.trim()));
               i = textArg.end + 1;
               continue;
             }
@@ -346,6 +346,25 @@ function extractName(body) {
   return flattenText(parseInline(body.slice(openIdx + 1, closeIdx)));
 }
 
+// Canonicalizes a LinkedIn URL to the "https://www.linkedin.com/..." form.
+// LaTeX resumes commonly \href a bare "linkedin.com/in/..." (no "www.",
+// sometimes no scheme) -- that renders as a perfectly valid link in a PDF/
+// browser, but several ATS/job-site autofill tools match LinkedIn links with
+// a strict "www.linkedin.com" pattern and silently skip anything without it,
+// even though the same tools happily pick up bare github.com / personal-site
+// links. Only LinkedIn gets special-cased here since that's the one pattern
+// known to be under-matched; other domains are left exactly as authored.
+function normalizeHrefUrl(url) {
+  if (!url) return url;
+  if (/^https?:\/\/linkedin\.com/i.test(url)) {
+    return url.replace(/^https?:\/\/linkedin\.com/i, 'https://www.linkedin.com');
+  }
+  if (/^linkedin\.com/i.test(url)) {
+    return 'https://www.' + url;
+  }
+  return url;
+}
+
 // Returns { text, url } -- url is set when the segment was wrapped in
 // \href/\hrefWithoutArrow, so the caller can render a real hyperlink.
 function cleanContactSegment(inner) {
@@ -355,7 +374,7 @@ function cleanContactSegment(inner) {
     const afterCmd = hm[0].length;
     const urlArg = extractArg(inner, afterCmd);
     if (urlArg) {
-      url = urlArg.content.trim();
+      url = normalizeHrefUrl(urlArg.content.trim());
       const textArg = extractArg(inner, urlArg.end + 1);
       if (textArg) inner = textArg.content;
     }
