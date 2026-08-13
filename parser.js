@@ -230,24 +230,41 @@ function extractItems(highlightsContent) {
   return parts.map((p) => parseInline(p)).filter((runs) => runs.length > 0);
 }
 
-// Splits "\textbf{Company} ...rest..." into a flattened bold left string and
-// the remaining content (parsed as rich runs, used as the subheader line).
+// Splits "\textbf{Company} ...rest..." into the bold title (as runs, forced
+// bold) and whatever follows. Whether "rest" becomes part of the SAME header
+// line (e.g. a project's "\textbf{Title} \textit{- tech stack}" written on
+// one source line) or a separate subheader paragraph (e.g. a job's
+// "\textbf{Company}" then a blank line then "\textit{Job Title}") depends on
+// how the source separated them -- a blank line or an explicit LaTeX "\\"
+// linebreak means "new line"; anything else (just a space) means "same line".
 function splitFirstBold(latex) {
   const m = latex.match(/\\textbf\{/);
-  if (!m) return { leftText: flattenText(parseInline(latex)), restRuns: [] };
+  if (!m) return { leftRuns: parseInline(latex).map((r) => ({ ...r, bold: true })), subheader: [] };
   const openIdx = m.index + m[0].length - 1;
   const closeIdx = findMatchingBrace(latex, openIdx);
-  if (closeIdx === -1) return { leftText: flattenText(parseInline(latex)), restRuns: [] };
-  const leftText = flattenText(parseInline(latex.slice(openIdx + 1, closeIdx)));
-  let restRuns = parseInline(latex.slice(closeIdx + 1));
+  if (closeIdx === -1) return { leftRuns: parseInline(latex).map((r) => ({ ...r, bold: true })), subheader: [] };
+
+  const boldRuns = parseInline(latex.slice(openIdx + 1, closeIdx)).map((r) => ({ ...r, bold: true }));
+  const rest = latex.slice(closeIdx + 1);
+
+  const leading = rest.match(/^[ \t\r\n]*/)[0];
+  const blankLine = (leading.match(/\n/g) || []).length >= 2;
+  const explicitBreak = rest.slice(leading.length).startsWith('\\\\');
+  const sameLine = !blankLine && !explicitBreak;
+
+  let restRuns = parseInline(rest);
   // Drop a leading " | " artifact from a LaTeX \\ linebreak sitting right at the
   // split point (e.g. "\textbf{School} \\ \textit{Degree}") -- it's not a real
-  // separator, just where the bold company/school name ended.
-  if (restRuns.length && restRuns[0].text.trim() === '|') {
+  // separator, just where the bold school name ended.
+  if (!sameLine && restRuns.length && restRuns[0].text.trim() === '|') {
     restRuns = restRuns.slice(1);
     if (restRuns.length) restRuns[0] = { ...restRuns[0], text: restRuns[0].text.replace(/^\s+/, '') };
   }
-  return { leftText, restRuns };
+
+  if (sameLine && restRuns.length) {
+    return { leftRuns: [...boldRuns, { text: ' ', bold: false, italic: false }, ...restRuns], subheader: [] };
+  }
+  return { leftRuns: boldRuns, subheader: restRuns };
 }
 
 function parseSectionEntries(sectionBody) {
@@ -269,15 +286,15 @@ function parseSectionEntries(sectionBody) {
       const nextStart = i + 1 < twocol.length ? twocol[i + 1].start : sectionBody.length;
       const oc = onecol.find((o) => o.start >= tc.end && o.start < nextStart);
 
-      const { leftText, restRuns } = splitFirstBold(tc.content);
+      const { leftRuns, subheader } = splitFirstBold(tc.content);
       const rightText = flattenText(parseInline(tc.arg || ''));
       const bullets = oc ? bulletsFromOnecolContent(oc.content) || [] : [];
 
       entries.push({
         type: 'entry',
-        left: leftText,
+        left: leftRuns,
         right: rightText,
-        subheader: restRuns.length ? restRuns : null,
+        subheader: subheader.length ? subheader : null,
         bullets,
       });
     }

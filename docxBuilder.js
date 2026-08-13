@@ -85,11 +85,12 @@ function buildResumeDocument(data) {
 
     for (const entry of section.entries) {
       if (entry.type === 'entry') {
-        // Left (bold company/school) + right-tab-stopped (italic dates) header line.
-        // left/right are plain strings by design -- forced bold/italic here regardless
-        // of any nested formatting in the source, matching standard resume convention.
+        // Left (bold company/school, possibly with an inline tech-stack run
+        // preserving its own italics) + right-tab-stopped (italic dates).
+        // `right` stays a plain string (forced italic); `left` is a runs array
+        // so a same-line tech-stack suffix keeps its own formatting.
         const headerChildren = [
-          new TextRun({ text: entry.left || '', bold: true, size: halfPt(10.5) }),
+          ...runsToTextRuns(entry.left, { size: halfPt(10.5) }),
           new TextRun({ text: '\t' }),
           new TextRun({ text: entry.right || '', italics: true }),
         ];
@@ -175,4 +176,8 @@ async function buildResumeDocxBlob(data) {
   const { Packer } = docx;
   const doc = buildResumeDocument(data);
   return Packer.toBlob(doc);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { buildResumeDocument, buildResumeDocxBlob };
 }
