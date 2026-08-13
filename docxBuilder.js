@@ -47,7 +47,7 @@ function runsToTextRuns(runs, opts = {}) {
 function buildResumeDocument(data) {
   const { Document, Paragraph, TextRun, HeadingLevel, BorderStyle, TabStopType, AlignmentType, LineRuleType } = docx;
 
-  const lineSpacing = { line: Math.round(240 * 0.95), lineRule: LineRuleType.AUTO };
+  const lineSpacing = { line: Math.round(240 * 0.98), lineRule: LineRuleType.AUTO };
 
   // Bullets use a literal "•" character as real text, not Word's numPr list
   // feature -- a parser that reads the raw text stream (ignoring OOXML list
